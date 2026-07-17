@@ -131,6 +131,7 @@ private:
  * the async callback method. If true, the async callback method will not be called until the trigger predicate
  * returns true for the first time. Very useful when the type is DETACHED or SLAVE.
  * @param print_warnings Whether to print warnings when the async callback method is not triggered due to any reason.
+ * @param thread_name The custom name for the async thread. Defaults to the component `prefix`. Will be truncated to 15 characters.
  */
 struct AsyncFunctionHandlerParams
 {
@@ -190,6 +191,7 @@ struct AsyncFunctionHandlerParams
    *   before starting the async callback method. Default is true.
    * - print_warnings (bool): Whether to print warnings when the async callback method is not triggered
    *   due to any reason. Default is true.
+   * - thread_name (string): Name applied to the async thread. Truncated to 15 chars. Default is the prefix.
    * @param node The node that is used to get the parameters.
    * @param prefix Parameter prefix to use when accessing node parameters.
    */
@@ -229,6 +231,9 @@ struct AsyncFunctionHandlerParams
     if (node->has_parameter(prefix + "print_warnings")) {
       print_warnings = node->get_parameter(prefix + "print_warnings").as_bool();
     }
+    if (node->has_parameter(prefix + "thread_name")) {
+      thread_name = node->get_parameter(prefix + "thread_name").as_string();
+    }
   }
 
   int thread_priority = 50;
@@ -240,6 +245,7 @@ struct AsyncFunctionHandlerParams
   std::function<bool()> trigger_predicate = []() { return true; };
   bool wait_until_initial_trigger = true;
   bool print_warnings = true;
+  std::string thread_name = "";
 };
 
 /**
@@ -562,6 +568,19 @@ public:
     if (!thread_.joinable()) {
       reset_variables();
       thread_ = std::thread([this]() -> void {
+
+        if (!params_.thread_name.empty()) {
+          const auto rename_result = realtime_tools::set_current_thread_name(params_.thread_name);
+
+          if (!rename_result.first) {
+            RCLCPP_WARN(params_.logger, 
+                "Could not set thread name for the async worker thread. Error: %s",
+              rename_result.second.c_str());
+          } else {
+            RCLCPP_INFO(params_.logger, "%s", rename_result.second.c_str());
+          }
+        }
+
         if (!realtime_tools::configure_sched_fifo(thread_priority_)) {
           RCLCPP_WARN(
             params_.logger,

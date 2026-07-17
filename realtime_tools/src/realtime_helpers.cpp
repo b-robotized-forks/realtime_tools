@@ -260,6 +260,40 @@ std::pair<bool, std::string> set_current_thread_affinity(const std::vector<int> 
 #endif
 }
 
+std::pair<bool, std::string> set_current_thread_name(const std::string & name)
+{
+  if (name.empty()) {
+    return std::make_pair(false, "Thread name cannot be empty.");
+  }
+
+#ifdef _WIN32
+  // do we need to saitize this string somehow for windows?
+  std::wstring wname(name.begin(), name.end());
+  HRESULT hr = SetThreadDescription(GetCurrentThread(), wname.c_str());
+  if (SUCCEEDED(hr)) {
+    return std::make_pair(true, "Thread name: " + wname);
+  } else {
+    return std::make_pair(false, "Failed to set thread name on Windows.");
+  }
+  // do we need MACOS version as well?
+#else
+  std::string t_name = name.substr(0, 15);
+  int rc = pthread_setname_np(pthread_self(), t_name.c_str());
+
+  std::string msg = "Thread name: " + t_name;
+  if (t_name.length() > 15) {
+    t_name = t_name.substr(0, 15);
+    msg = "Thread name (truncated): " + t_name;
+  }
+
+  if (rc == 0) {
+    return std::make_pair(true, msg);
+  } else {
+    return std::make_pair(false, "Failed to set thread name. Error code: " + std::to_string(rc));
+  }
+#endif
+}
+
 int64_t get_number_of_available_processors()
 {
 #ifdef _WIN32
