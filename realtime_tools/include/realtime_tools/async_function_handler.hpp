@@ -596,9 +596,17 @@ public:
             params_.logger, !affinity_result.first,
             "Could not set CPU affinity for the async worker thread. Error: %s",
             affinity_result.second.c_str());
+
+          std::string cores_list_print = "[";
+          for (size_t i = 0; i < params_.cpu_affinity_cores.size(); ++i) {
+            cores_list_print += std::to_string(params_.cpu_affinity_cores[i]) +
+                                (i < params_.cpu_affinity_cores.size() - 1 ? ", " : "");
+          }
+          cores_list_print += "]";
+
           RCLCPP_WARN_EXPRESSION(
             params_.logger, affinity_result.first,
-            "Async worker thread is successfully pinned to the requested CPU cores!");
+            "Async worker thread successfully pinned to Cores: %s", cores_list_print.c_str());
         }
 
         switch (params_.scheduling_policy) {
