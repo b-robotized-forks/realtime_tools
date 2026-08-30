@@ -20,6 +20,7 @@
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <functional>
@@ -124,6 +125,7 @@ private:
  * SYNCHRONIZED, DETACHED, or SLAVE.
  * @param exec_rate Execution rate of the async worker thread in Hz. Only used if the
  * scheduling_policy is DETACHED or SLAVE. Must be a positive integer.
+ * @param minimum_cycle_time Minimum synchronized callback cycle time in seconds.
  * @param clock Clock to be used for the async worker thread. Only used if the scheduling_policy
  * is DETACHED or SLAVE.
  * @param logger Logger to be used for the async worker thread. If not set, a default logger will be used.
@@ -167,6 +169,11 @@ struct AsyncFunctionHandlerParams
         "AsyncFunctionHandlerParams: scheduling policy is unknown. "
         "Please set it to either 'synchronized', 'detached' or 'slave'.");
     }
+    if (minimum_cycle_time < 0.0) {
+      RCLCPP_ERROR(logger, "Minimum cycle time must not be negative.");
+      return false;
+    }
+
     if (trigger_predicate == nullptr) {
       RCLCPP_ERROR(logger, "The parsed trigger predicate is not valid!");
       return false;
@@ -189,6 +196,7 @@ struct AsyncFunctionHandlerParams
    * - scheduling_policy (string): Scheduling policy for the async worker thread. Can be either
    *   "synchronized", "detached", or "slave". Default is "synchronized".
    * - execution_rate (int): Execution rate of the async worker thread in Hz.
+   * - minimum_cycle_time (double): Minimum synchronized callback cycle time in seconds.
    * - wait_until_initial_trigger (bool): Whether to wait until the initial trigger predicate is true
    *   before starting the async callback method. Default is true.
    * - print_warnings (bool): Whether to print warnings when the async callback method is not triggered
@@ -226,6 +234,9 @@ struct AsyncFunctionHandlerParams
       }
       exec_rate = static_cast<unsigned int>(execution_rate);
     }
+    if (node->has_parameter(prefix + "minimum_cycle_time")) {
+      minimum_cycle_time = node->get_parameter(prefix + "minimum_cycle_time").as_double();
+    }
     if (node->has_parameter(prefix + "wait_until_initial_trigger")) {
       wait_until_initial_trigger =
         node->get_parameter(prefix + "wait_until_initial_trigger").as_bool();
@@ -242,6 +253,7 @@ struct AsyncFunctionHandlerParams
   std::vector<int> cpu_affinity_cores = {};
   AsyncSchedulingPolicy scheduling_policy = AsyncSchedulingPolicy::SYNCHRONIZED;
   unsigned int exec_rate = 0u;
+  double minimum_cycle_time = 0.0001;
   rclcpp::Clock::SharedPtr clock = nullptr;
   rclcpp::Logger logger = rclcpp::get_logger("AsyncFunctionHandler");
   std::function<bool()> trigger_predicate = []() { return true; };
@@ -570,13 +582,12 @@ public:
     if (!thread_.joinable()) {
       reset_variables();
       thread_ = std::thread([this]() -> void {
-
         if (!params_.thread_name.empty()) {
           const auto rename_result = realtime_tools::set_current_thread_name(params_.thread_name);
 
           if (!rename_result.first) {
-            RCLCPP_WARN(params_.logger, 
-                "Could not set thread name for the async worker thread. Error: %s",
+            RCLCPP_WARN(
+              params_.logger, "Could not set thread name for the async worker thread. Error: %s",
               rename_result.second.c_str());
           } else {
             RCLCPP_INFO(params_.logger, "%s", rename_result.second.c_str());
@@ -716,6 +727,11 @@ private:
               next_iteration_time += (overrun_count * period);
             }
             std::this_thread::sleep_until(next_iteration_time);
+          } else if (params_.scheduling_policy == AsyncSchedulingPolicy::SLAVE) {
+            if (current_callback_period_.seconds() < params_.minimum_cycle_time) {
+              std::this_thread::sleep_for(
+                std::chrono::microseconds(static_cast<int>(params_.minimum_cycle_time * 1e6)));
+            }
           }
         }
         trigger_in_progress_ = false;

@@ -170,6 +170,27 @@ TEST_F(AsyncFunctionHandlerTest, check_triggering)
   async_class.get_handler().wait_for_trigger_cycle_to_finish();
 }
 
+TEST_F(AsyncFunctionHandlerTest, synchronized_callback_respects_minimum_cycle_time)
+{
+  realtime_tools::TestAsyncFunctionHandler async_class;
+  realtime_tools::AsyncFunctionHandlerParams params;
+  params.minimum_cycle_time = 0.005;
+  async_class.initialize(params);
+  async_class.get_handler().start_thread();
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  const auto start_time = std::chrono::steady_clock::now();
+  const auto trigger_status = async_class.trigger();
+  ASSERT_TRUE(trigger_status.first);
+  async_class.get_handler().wait_for_trigger_cycle_to_finish();
+  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+    std::chrono::steady_clock::now() - start_time);
+
+  EXPECT_GE(elapsed, std::chrono::milliseconds(4));
+  EXPECT_EQ(async_class.get_counter(), 1);
+  async_class.get_handler().stop_thread();
+}
+
 TEST_F(AsyncFunctionHandlerTest, trigger_for_several_cycles)
 {
   realtime_tools::TestAsyncFunctionHandler async_class;
@@ -502,4 +523,45 @@ TEST_F(AsyncFunctionHandlerTest, trigger_for_several_cycles_in_detached_scheduli
   // now the async update should be preempted
   ASSERT_FALSE(async_class.get_handler().is_running());
   ASSERT_TRUE(async_class.get_handler().is_stopped());
+}
+
+TEST_F(AsyncFunctionHandlerTest, slave_scheduling_policy_respects_minimum_cycle_time)
+{
+  realtime_tools::TestAsyncFunctionHandler async_class;
+
+  rclcpp::NodeOptions node_options;
+  node_options.arguments(
+    {"--ros-args", "-p", "scheduling_policy:=slave", "-p", "wait_until_initial_trigger:=false",
+     "-p", "execution_rate:=1000", "-p", "minimum_cycle_time:=0.005"});
+  node_options.allow_undeclared_parameters(true);
+  node_options.automatically_declare_parameters_from_overrides(true);
+  rclcpp::Node::SharedPtr node = std::make_shared<rclcpp::Node>("test_node_slave", node_options);
+  realtime_tools::AsyncFunctionHandlerParams params;
+  params.clock = node->get_clock();
+  params.initialize(node, "");
+  async_class.initialize(params);
+  ASSERT_EQ(
+    async_class.get_handler().get_params().scheduling_policy,
+    realtime_tools::AsyncSchedulingPolicy::SLAVE);
+  ASSERT_DOUBLE_EQ(async_class.get_handler().get_params().minimum_cycle_time, 0.005);
+
+  async_class.get_handler().start_thread();
+  std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  EXPECT_EQ(async_class.get_state().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_ACTIVE);
+
+  // The update() callback itself doesn't block (it only sleeps for 10us to simulate work), so
+  // without a minimum_cycle_time floor the SLAVE loop would free-spin as fast as the CPU allows.
+  // Let it run for 1 second and check that the number of executed cycles stays close to
+  // 1 / minimum_cycle_time (~200 cycles here), rather than the tens of thousands of iterations a
+  // free-spinning loop would achieve.
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  const int counter_after_1s = async_class.get_counter();
+
+  async_class.get_handler().stop_thread();
+
+  const int expected_max_cycles = static_cast<int>(2.0 / params.minimum_cycle_time);
+  EXPECT_GT(counter_after_1s, 0);
+  EXPECT_LT(counter_after_1s, expected_max_cycles)
+    << "SLAVE scheduling policy should respect minimum_cycle_time and not free-spin when the "
+       "callback does not block.";
 }

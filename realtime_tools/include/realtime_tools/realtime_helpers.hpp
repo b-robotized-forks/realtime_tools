@@ -145,7 +145,7 @@ std::pair<bool, std::string> set_current_thread_affinity(const std::vector<int> 
 
 /**
  * Configure the current thread name.
- * \param[in] name The name for the thread. 
+ * \param[in] name The name for the thread.
  * On Linux, it will be automatically truncated to 15 characters.
  * \returns a pair of a boolean indicating whether the operation succeeded or not
  * and a message describing the result of the operation
