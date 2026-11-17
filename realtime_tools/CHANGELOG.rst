@@ -2,6 +2,33 @@
 Changelog for package realtime_tools
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.14.1 (2026-11-04)
+-------------------
+* Fix C++17 build of LockFreePooledSPSCQueue (backport `#615 <https://github.com/ros-controls/realtime_tools/issues/615>`_) (`#620 <https://github.com/ros-controls/realtime_tools/issues/620>`_)
+* Contributors: mergify[bot]
+
+3.14.0 (2026-11-01)
+-------------------
+* Improve lock free queue and add pooled SPSC queue (backport `#606 <https://github.com/ros-controls/realtime_tools/issues/606>`_) (`#607 <https://github.com/ros-controls/realtime_tools/issues/607>`_)
+* Contributors: mergify[bot]
+
+3.13.0 (2026-09-22)
+-------------------
+* Add trySetFeedback for rt access (backport `#586 <https://github.com/ros-controls/realtime_tools/issues/586>`_) (`#588 <https://github.com/ros-controls/realtime_tools/issues/588>`_)
+* Contributors: Christoph Froehlich, mergify[bot]
+
+3.12.0 (2026-09-03)
+-------------------
+* feat: create publisher internally in RealtimePublisher (backport `#573 <https://github.com/ros-controls/realtime_tools/issues/573>`_) (`#574 <https://github.com/ros-controls/realtime_tools/issues/574>`_)
+* print async thread pinned cores (backport `#551 <https://github.com/ros-controls/realtime_tools/issues/551>`_) (`#567 <https://github.com/ros-controls/realtime_tools/issues/567>`_)
+  print async thread pinned cores (`#551 <https://github.com/ros-controls/realtime_tools/issues/551>`_)
+* Add configure_sched_rr() for SCHED_RR scheduling policy (backport `#513 <https://github.com/ros-controls/realtime_tools/issues/513>`_) (`#562 <https://github.com/ros-controls/realtime_tools/issues/562>`_)
+* Add thread renaming in async function handler (backport `#550 <https://github.com/ros-controls/realtime_tools/issues/550>`_) (`#558 <https://github.com/ros-controls/realtime_tools/issues/558>`_)
+* package.xml: correct license to a valid SPDX (backport `#552 <https://github.com/ros-controls/realtime_tools/issues/552>`_) (`#554 <https://github.com/ros-controls/realtime_tools/issues/554>`_)
+* Apply CMP0167 also for exported dependencies (backport `#539 <https://github.com/ros-controls/realtime_tools/issues/539>`_) (`#540 <https://github.com/ros-controls/realtime_tools/issues/540>`_)
+* Fix CMP0167 and remove FindBoost (backport `#531 <https://github.com/ros-controls/realtime_tools/issues/531>`_) (`#533 <https://github.com/ros-controls/realtime_tools/issues/533>`_)
+* Contributors: mergify[bot]
+
 3.11.0 (2026-04-02)
 -------------------
 * Use realtime mutex and also try-lock while setting feedback (backport `#490 <https://github.com/ros-controls/realtime_tools/issues/490>`_) (`#494 <https://github.com/ros-controls/realtime_tools/issues/494>`_)

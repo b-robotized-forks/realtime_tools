@@ -13,7 +13,7 @@ In ``SYNCHRONIZED`` mode, the async worker thread does not govern its own timing
 Used when the asynchronous task must run in lockstep with the main control loop, but needs to be offloaded to a separate thread to prevent blocking the real-time path. Used with slow hardware interfaces doing heavy processing.
 
 * **Scheduling Control:** ``controller_manager`` main thread.
-* **Sleep Mechanism:** Waits on a ``contition_variable`` from the main thread.
+* **Sleep Mechanism:** Waits on a ``condition_variable`` from the main thread.
 
 DETACHED
 --------
@@ -24,11 +24,13 @@ Hardware interfaces that need to poll or update at a fixed, independent frequenc
 * **Scheduling Control:** Internal software clock.
 * **Sleep Mechanism:** Calculates the elapsed time and explicitly calls ``std::this_thread::sleep_until()``, same as ``ros2_control_node`` executable.
 
-SLAVE
------
-In ``SLAVE`` mode, the async worker thread runs independently of the main thread, but *without any software rate-limiting or sleeping*. The handler continuously loops and immediately restarts the callback, expecting the callback function itself to block execution.
+SELF_PACED
+----------
+In ``SELF_PACED`` mode, the async worker thread runs independently of the main thread and normally relies on the callback (for example, a blocking ``read()``) to pace execution. If the callback returns in less than 10% of the ``exec_rate`` period, the handler sleeps for 100 us to prevent CPU burning, with a warning.
 
 Used when hardware interfaces must synchronize directly with an external hardware clock. Avoids drift between control loops of manipulator controllers and ``controller_manager`` thread. This requires the hardware interface to wait on a heartbeat/sync signal from hardware that a new control cycle can start.
 
+Note that while the hardware interface is synchronized to the external hardware, controllers might still experience drift, as their ``update()`` is still called in the main ``controller_manager`` thread.
+
 * **Scheduling Control:** Blocking in hardware interface ``read()`` function.
-* **Sleep Mechanism:** None. Relies on a blocking hardware ``read()`` to pace the thread.
+* **Sleep Mechanism:** None. Relies on a blocking hardware ``read()`` to pace the thread. The handler sleeps for 100 us only if the callback returns in less than 10% of the ``exec_rate`` period to prevent CPU burning.
