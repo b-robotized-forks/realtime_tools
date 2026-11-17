@@ -105,6 +105,31 @@ bool lock_memory(std::string & message)
   return lock_result.first;
 }
 
+bool configure_sched_rr(int priority)
+{
+#ifdef _WIN32
+  (void)priority;
+  std::cerr << "SCHED_RR is not supported on Windows." << std::endl;
+  return false;
+#elif defined(__APPLE__)
+  pthread_t thread = pthread_self();
+  struct sched_param schedp;
+  memset(&schedp, 0, sizeof(schedp));
+  schedp.sched_priority = priority;
+
+  if (pthread_setschedparam(thread, SCHED_RR, &schedp) == 0) {
+    return true;
+  } else {
+    return false;
+  }
+#else
+  struct sched_param schedp;
+  memset(&schedp, 0, sizeof(schedp));
+  schedp.sched_priority = priority;
+  return !sched_setscheduler(0, SCHED_RR, &schedp);
+#endif
+}
+
 std::pair<bool, std::string> lock_memory()
 {
 #if defined(_WIN32) || defined(__APPLE__)
@@ -263,34 +288,33 @@ std::pair<bool, std::string> set_current_thread_affinity(const std::vector<int> 
 std::pair<bool, std::string> set_current_thread_name(const std::string & name)
 {
   if (name.empty()) {
-    return std::make_pair(false, "Thread name cannot be empty.");
+    return std::make_pair(false, "Thread name cannot be empty. This should not happen!");
   }
 
 #ifdef _WIN32
-  // do we need to saitize this string somehow for windows?
   std::wstring wname(name.begin(), name.end());
   HRESULT hr = SetThreadDescription(GetCurrentThread(), wname.c_str());
   if (SUCCEEDED(hr)) {
-    return std::make_pair(true, "Thread name: " + wname);
-  } else {
-    return std::make_pair(false, "Failed to set thread name on Windows.");
+    return std::make_pair(true, "Thread name: " + name);
   }
-  // do we need MACOS version as well?
+  return std::make_pair(false, "Failed to set thread name on Windows.");
+#elif defined(__APPLE__)
+  std::string t_name = name.substr(0, 63);
+  std::string msg =
+    (name.length() > 63) ? "Thread name (truncated): " + t_name : "Thread name: " + t_name;
+  if (pthread_setname_np(t_name.c_str()) == 0) {
+    return std::make_pair(true, msg);
+  }
+  return std::make_pair(false, "Failed to set thread name on macOS.");
 #else
   std::string t_name = name.substr(0, 15);
+  std::string msg =
+    (name.length() > 15) ? "Thread name (truncated): " + t_name : "Thread name: " + t_name;
   int rc = pthread_setname_np(pthread_self(), t_name.c_str());
-
-  std::string msg = "Thread name: " + t_name;
-  if (t_name.length() > 15) {
-    t_name = t_name.substr(0, 15);
-    msg = "Thread name (truncated): " + t_name;
-  }
-
   if (rc == 0) {
     return std::make_pair(true, msg);
-  } else {
-    return std::make_pair(false, "Failed to set thread name. Error code: " + std::to_string(rc));
   }
+  return std::make_pair(false, "Failed to set thread name. Error code: " + std::to_string(rc));
 #endif
 }
 
