@@ -539,3 +539,14 @@ TEST_F(AsyncFunctionHandlerTest, self_paced_scheduling_policy_respects_minimum_p
   EXPECT_LE(counter_after_1s, 10000) << "The SELF_PACED policy must sleep for at least 100 us "
                                         "when the callback does not block.";
 }
+
+TEST(AsyncSchedulingPolicyTest, deprecated_slave_name_is_self_paced)
+{
+  EXPECT_EQ(
+    realtime_tools::AsyncSchedulingPolicy("slave"),
+    realtime_tools::AsyncSchedulingPolicy::SELF_PACED);
+  EXPECT_EQ(
+    realtime_tools::AsyncSchedulingPolicy("self_paced"),
+    realtime_tools::AsyncSchedulingPolicy::SELF_PACED);
+  EXPECT_EQ(realtime_tools::AsyncSchedulingPolicy("slave").to_string(), "self_paced");
+}

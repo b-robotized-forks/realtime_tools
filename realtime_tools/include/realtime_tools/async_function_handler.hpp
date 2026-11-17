@@ -58,6 +58,8 @@ public:
     SYNCHRONIZED,  /// Synchronized scheduling policy
     DETACHED,      /// Detached scheduling policy
     SELF_PACED,    /// Self-paced scheduling policy
+    /// Deprecated name of SELF_PACED
+    SLAVE [[deprecated("Use AsyncSchedulingPolicy::SELF_PACED instead of SLAVE.")]] = SELF_PACED,
   };
 
   AsyncSchedulingPolicy() = default;
@@ -69,6 +71,11 @@ public:
     } else if (data_type == "detached") {
       value_ = DETACHED;
     } else if (data_type == "self_paced") {
+      value_ = SELF_PACED;
+    } else if (data_type == "slave") {
+      RCLCPP_WARN(
+        rclcpp::get_logger("AsyncSchedulingPolicy"),
+        "The scheduling policy 'slave' is deprecated and will be removed. Use 'self_paced'.");
       value_ = SELF_PACED;
     } else {
       value_ = UNKNOWN;

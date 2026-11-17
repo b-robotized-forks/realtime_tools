@@ -32,5 +32,7 @@ Used when hardware interfaces must synchronize directly with an external hardwar
 
 Note that while the hardware interface is synchronized to the external hardware, controllers might still experience drift, as their ``update()`` is still called in the main ``controller_manager`` thread.
 
+``SLAVE`` (``slave``) is the deprecated name of ``SELF_PACED``. It still works, but prints a deprecation warning. Use ``SELF_PACED`` (``self_paced``).
+
 * **Scheduling Control:** Blocking in hardware interface ``read()`` function.
 * **Sleep Mechanism:** None. Relies on a blocking hardware ``read()`` to pace the thread. The handler sleeps for 100 us only if the callback returns in less than 10% of the ``exec_rate`` period to prevent CPU burning.
