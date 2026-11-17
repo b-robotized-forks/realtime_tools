@@ -578,19 +578,6 @@ public:
     if (!thread_.joinable()) {
       reset_variables();
       thread_ = std::thread([this]() -> void {
-
-        if (!params_.thread_name.empty()) {
-          const auto rename_result = realtime_tools::set_current_thread_name(params_.thread_name);
-
-          if (!rename_result.first) {
-            RCLCPP_WARN(params_.logger, 
-                "Could not set thread name for the async worker thread. Error: %s",
-              rename_result.second.c_str());
-          } else {
-            RCLCPP_INFO(params_.logger, "%s", rename_result.second.c_str());
-          }
-        }
-
         if (!realtime_tools::configure_sched_fifo(thread_priority_)) {
           RCLCPP_WARN(
             params_.logger,
